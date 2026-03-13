@@ -42,11 +42,16 @@
 
     <!-- ========== 第二步：听写进行中 ========== -->
     <section id="section-dictation" class="hidden space-y-6">
-      <div class="text-center text-slate-600 text-sm">
-        第 <span id="current-index">1</span> / <span id="total-count">0</span> 个
+      <!-- 进度提示器：仅显示“当前数/总数”，不显示任何单词内容；点击下一题或识别到 OK 时由 JS 更新 -->
+      <div class="text-center py-3 px-4 rounded-xl bg-slate-100 border border-slate-200">
+        <p class="text-sm text-slate-500 mb-0.5">听写进度</p>
+        <p class="text-xl font-bold text-slate-700 tabular-nums">
+          <span id="current-index">1</span> / <span id="total-count">0</span>
+        </p>
       </div>
+      <!-- 听写中不显示单词，仅显示占位符，避免泄题；单词仅通过语音朗读 -->
       <div class="bg-white rounded-2xl shadow-lg p-6 text-center min-h-[120px] flex flex-col justify-center">
-        <p id="current-word" class="text-2xl font-bold text-slate-800 break-words">—</p>
+        <p id="current-word" class="text-2xl font-bold text-slate-500 break-words">请听题</p>
         <p id="hint-replay" class="text-sm text-slate-500 mt-2">朗读两遍后，说 "ok" 进入下一个，或点击下方按钮</p>
       </div>
       <!-- 语音识别开启时显示，带脉冲动画的“正在聆听”提示 -->
@@ -64,10 +69,10 @@
       </div>
     </section>
 
-    <!-- ========== 第三步：听写完成与核对区 ========== -->
+    <!-- ========== 第三步：听写完成 — 核对清单 ========== -->
     <section id="section-complete" class="hidden space-y-6">
-      <h2 class="text-xl font-bold text-center text-slate-700">听写完成</h2>
-      <p class="text-sm text-slate-600 text-center">请对照下方列表检查你的听写内容</p>
+      <h2 class="text-xl font-bold text-center text-slate-700">听写完成 — 核对清单</h2>
+      <p class="text-sm text-slate-600 text-center">请对照下方完整单词列表，检查纸质听写本上的内容</p>
       <ul id="word-list" class="bg-white rounded-2xl shadow-lg p-4 space-y-2 max-h-[60vh] overflow-y-auto text-base">
         <!-- 完整单词列表由 JS 在听写结束时动态填充，便于纸质听写本核对 -->
       </ul>
@@ -75,7 +80,7 @@
         id="btn-restart"
         class="w-full py-4 rounded-xl bg-blue-600 text-white text-lg font-semibold shadow-lg active:bg-blue-700"
       >
-        重新开始
+        返回首页 / 重新开始
       </button>
     </section>
 
@@ -128,7 +133,7 @@
       }
 
       /**
-       * 用 Web Speech API 的 TTS 朗读当前单词两遍（en-US），两遍之间停顿 1.5 秒
+       * 用 Web Speech API 的 TTS 朗读当前单词两遍（en-US），两遍之间停顿 2.5 秒
        * 第二遍结束后自动开启语音识别，等待用户说 "ok" 进入下一个
        */
       function speakCurrentWordTwice() {
@@ -137,7 +142,8 @@
         if (!word) return;
 
         isSpeaking = true;
-        currentWordEl.textContent = word;
+        // 【修改】听写中不显示单词，仅显示占位符，单词只通过 TTS 朗读
+        currentWordEl.textContent = '请听题';
 
         var utterance1 = new SpeechSynthesisUtterance(word);
         utterance1.lang = 'en-US';
@@ -152,7 +158,7 @@
               startListening(); // 两遍读完后开始监听 "ok"
             };
             synth.speak(utterance2);
-          }, 1500);
+          }, 2500); // 两遍之间停顿 2.5 秒
         };
         synth.speak(utterance1);
       }
@@ -179,8 +185,9 @@
       }
 
       /**
-       * 进入下一个单词：停止识别、取消 TTS，索引 +1；
-       * 若已是最后一个，则隐藏听写区、显示完成区并渲染完整单词列表
+       * 进入下一个单词：停止识别、取消 TTS，索引 +1，更新进度显示；
+       * 若已是最后一个，则隐藏听写区、显示完成区并渲染完整单词列表；
+       * 否则更新“听写进度”数字并自动触发朗读新单词两遍。
        */
       function goNext() {
         stopListening();
@@ -195,7 +202,9 @@
           return;
         }
 
+        // 进度提示器：仅更新数字（当前/总数），不显示单词
         currentIndexEl.textContent = currentIndex + 1;
+        totalCountEl.textContent = wordList.length;
         speakCurrentWordTwice();
       }
 
@@ -271,8 +280,10 @@
         currentIndex = 0;
         sectionImport.classList.add('hidden');
         sectionDictation.classList.remove('hidden');
+        // 进度提示器：进入听写时初始化显示“1 / 总数”（仅数字，不显示单词）
         totalCountEl.textContent = wordList.length;
         currentIndexEl.textContent = 1;
+        currentWordEl.textContent = '请听题';
 
         if (!recognition) recognition = initRecognition();
         speakCurrentWordTwice();
